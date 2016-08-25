@@ -1,3 +1,7 @@
+#include <LSM9DS1_Registers.h>
+#include <LSM9DS1_Types.h>
+#include <SparkFunLSM9DS1.h>
+
 //------------------------------------------------------------
 //    姿勢制御フィルタリングプログラム
 //                Arduino　IDE　1.6.11
@@ -28,7 +32,7 @@ LSM9DS1 imu;
 #define LSM9DS1_M  0x1E // SPIアドレス設定 0x1C if SDO_M is LOW
 #define LSM9DS1_AG  0x6B // SPIアドレス設定 if SDO_AG is LOW
 
-#define PRINT_CALCULATED
+#define PRINT_CALCULATED //表示用の定義
 #define PRINT_SPEED 250 // 250 ms between prints
 #define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
 //-------------------------------------------------------------------------
@@ -173,7 +177,10 @@ void printMag()
 
 }
 //---------------------------------------------------------
-
+/**
+ * printAttitude
+ * 取得したデータをシリアル出力する関数
+ */
 void printAttitude(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz)
 {
 
@@ -209,6 +216,19 @@ void printAttitude(float gx, float gy, float gz, float ax, float ay, float az, f
   Serial.println(roll, 2);
   Serial.print("Heading: ");
   Serial.println(heading, 2);
+
+  //Gyro
+  Serial.print("gx: ");
+  Serial.print(gx, 2);
+  Serial.print(", ");
+  Serial.print("gy: ");
+  Serial.print(gy, 2);
+  Serial.print(", ");
+  Serial.print("gz: ");
+  Serial.print(gz, 2);
+  Serial.println("");
+
+  
 
   hedVal = (heading);
 
