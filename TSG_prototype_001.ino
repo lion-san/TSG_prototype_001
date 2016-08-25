@@ -87,7 +87,7 @@ void loop(void) {                               //LCD描画
   printGyro();  // Print "G: gx, gy, gz"　　　シリアルモニタ表示用フォーマット
   printAccel(); // Print "A: ax, ay, az"
   printMag();   // Print "M: mx, my, mz"
-  printAttitude (imu.gx, imu.gy, imu.gz, imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz);
+  printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz);
   Serial.println();
 
 }
