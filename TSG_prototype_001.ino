@@ -29,10 +29,13 @@
 
 LSM9DS1 imu;
 
+int SAMPLETIME = 10;
+
 #define LSM9DS1_M  0x1E // SPIアドレス設定 0x1C if SDO_M is LOW
 #define LSM9DS1_AG  0x6B // SPIアドレス設定 if SDO_AG is LOW
 
-#define PRINT_CALCULATED //表示用の定義
+//#define PRINT_CALCULATED //表示用の定義
+//#define DEBUG_GYRO //ジャイロスコープの表示
 #define PRINT_SPEED 250 // 250 ms between prints
 #define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
 //-------------------------------------------------------------------------
@@ -82,7 +85,7 @@ void setup(void) {
 void loop(void) {                               //LCD描画
 
   // rebuild the picture after some delay
-  delay(1000);
+  delay(SAMPLETIME);
 
   printGyro();  // Print "G: gx, gy, gz"　　　シリアルモニタ表示用フォーマット
   printAccel(); // Print "A: ax, ay, az"
@@ -98,9 +101,8 @@ void printGyro()
 
   imu.readGyro();
 
-  Serial.print("G: ");
 #ifdef PRINT_CALCULATED
-
+  Serial.print("G: ");
   Serial.print(imu.calcGyro(imu.gx), 2);
   Serial.print(", ");
   Serial.print(imu.calcGyro(imu.gy), 2);
@@ -127,8 +129,8 @@ void printAccel()
   // ax, ay, and az variables with the most current data.
   imu.readAccel();
 
-  Serial.print("A: ");
 #ifdef PRINT_CALCULATED
+  Serial.print("A: ");
 
   Serial.print(imu.calcAccel(imu.ax), 2);
   Serial.print(", ");
@@ -154,8 +156,8 @@ void printMag()
 {
 
   imu.readMag();
-  Serial.print("M: ");
 #ifdef PRINT_CALCULATED
+  Serial.print("M: ");
 
   Serial.print(imu.calcMag(imu.mx), 2);
   Serial.print(", ");
@@ -180,16 +182,30 @@ void printMag()
 /**
  * printAttitude
  * 取得したデータをシリアル出力する関数
+ * gx : ジャイロスコープ X値
+ * gy : ジャイロスコープ Y値
+ * gz : ジャイロスコープ Z値
+ * ax : 加速度センサー X値
+ * ay : 加速度センサー Y値
+ * az : 加速度センサー Z値
+ * mx : 地磁気センサー X値
+ * my : 地磁気センサー Y値
+ * mz : 地磁気センサー Z値
  */
+
+ //ジャイロセンサーの積分値
+ float pitch_g = 0.0;
+ float roll_g = 0.0;
+
+ //相補フィルタの保持値
+ float prev_pitch = 0.0;
+ float prev_roll = 0.0;
 void printAttitude(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz)
 {
 
   //重力加速度から求めた角度ををカルマンフィルタの初期値とする
   float roll = atan2(ay, az);
   float pitch = atan2(-ax, sqrt(ay * ay + az * az));
-
-  //ジャイロセンサーから求めた角度
-
 
   float heading;
   if (my == 0)
@@ -214,25 +230,50 @@ void printAttitude(float gx, float gy, float gz, float ax, float ay, float az, f
   Serial.print(pitch, 2);
   Serial.print(", ");
   Serial.println(roll, 2);
-  Serial.print("Heading: ");
-  Serial.println(heading, 2);
+  //Serial.print("Heading: ");
+  //Serial.println(heading, 2);
 
-  //Gyro
-  Serial.print("gx: ");
-  Serial.print(gx, 2);
+
+  //*** Gyro ***
+  float gyro_x =  gx * SAMPLETIME / 1000;
+  float gyro_y = gy * SAMPLETIME / 1000;
+
+#ifdef DEBUG_GYRO
+
+  //ジャイロセンサーから求めた角度
+  pitch_g = pitch_g + gyro_x;  
+  roll_g = roll_g + gyro_y;
+
+  Serial.print("PitchG, RollG: ");
+  Serial.print(pitch_g, 2);
   Serial.print(", ");
-  Serial.print("gy: ");
-  Serial.print(gy, 2);
-  Serial.print(", ");
-  Serial.print("gz: ");
-  Serial.print(gz, 2);
+  Serial.print(roll_g, 2);
   Serial.println("");
+#endif
 
-  
+  //相補フィルタの出力
+  prev_pitch = complementFilter( prev_pitch, gyro_x, pitch );
+  prev_roll = complementFilter( prev_roll, gyro_y, roll );
 
-  hedVal = (heading);
-
+  Serial.print("Pitch, Roll: ");
+  Serial.print(prev_pitch, 2);
+  Serial.print(", ");
+  Serial.print(prev_roll, 2);
+  Serial.println("");
 }
+
+
+/**
+ * 相補フィルタ
+ * prev_val : 前回のOutput
+ * deg_g : ジャイロセンサで得た角度
+ * deg_a : 加速度センサーで得た角度
+ */
+ float complementFilter(float prev_val, float deg_g, float deg_a){
+    float output = 0.95 * (prev_val + deg_g) + 0.05 * deg_a;
+    return output;
+ }
+
 /**
  * カルマンフィルタの計算式
  */
