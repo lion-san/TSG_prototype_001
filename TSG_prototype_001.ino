@@ -1,7 +1,3 @@
-#include <LSM9DS1_Registers.h>
-#include <LSM9DS1_Types.h>
-#include <SparkFunLSM9DS1.h>
-
 //------------------------------------------------------------
 //    姿勢制御フィルタリングプログラム
 //                Arduino　IDE　1.6.11
@@ -16,81 +12,59 @@
 //
 //　　　　
 //----------------------------------------------------------//
-/*
-  SD card datalogger
-
- This example shows how to log data from three analog sensors
- to an SD card using the SD library.
-
- The circuit:
- * analog sensors on analog ins 0, 1, and 2
- * SD card attached to SPI bus as follows:
- ** MOSI - pin 11
- ** MISO - pin 12
- ** CLK - pin 13
- ** CS - pin 4
-
- created  24 Nov 2010
- modified 9 Apr 2012
- by Tom Igoe
-
- This example code is in the public domain.
-
- */
 
 
 #include <SPI.h>                                //SPIライブラリ
 #include <Wire.h>                               //I2Cライブラリ
 #include <SparkFunLSM9DS1.h>                  //LSM9DS1ライブラリ：https://github.com/sparkfun/LSM9DS1_Breakout
-
 #include <SD.h>
+#include <LSM9DS1_Registers.h>
+#include <LSM9DS1_Types.h>
 
 
 
-#define ADAddr 0x48
-
-LSM9DS1 imu;
-
-int SAMPLETIME = 10;
-
-//MicroSD 
-//const int chipSelect = 4;//Arduino UNO
-const int chipSelect = 10;//Arduino Micro
+//#define ADAddr 0x48//
 
 #define LSM9DS1_M  0x1E // SPIアドレス設定 0x1C if SDO_M is LOW
 #define LSM9DS1_AG  0x6B // SPIアドレス設定 if SDO_AG is LOW
 
 //#define PRINT_CALCULATED //表示用の定義
 //#define DEBUG_GYRO //ジャイロスコープの表示
-#define PRINT_SPEED 250 // 250 ms between prints
-#define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
-//-------------------------------------------------------------------------
-/*
-float s = 0;                                    //表示用データレジスタ
-float gxVal = 0;                                //ジャイロｘ軸用データーレジスタ
-float gyVal = 0;                                //ジャイロｙ軸用データーレジスタ
-float gzVal = 0;                                //ジャイロｚ軸用データーレジスタ
-float axVal = 0;                                //Axis ｘ用データーレジスタ
-float ayVal = 0;                                //Axis ｙ用データーレジスタ
-float azVal = 0;                                //Axis ｚ用データーレジスタ
-float mxVal = 0;                                //Mag x 用データーレジスタ
-float myVal = 0;                                //Mag ｙ 用データーレジスタ
-float mzVal = 0;                                //Mag x 用データーレジスタ
-float hedVal = 0;                               //Hedding 用データーレジスタ
-*/
-//------------------------------------------------------------------------
 
+//#define PRINT_SPEED 250 // 250 ms between prints
+#define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
+
+//-------------------------------------------------------------------------
+//Global valiables
+
+LSM9DS1 imu;
+int SAMPLETIME = 10;
+int RECORD_INTERVAL = 100;
+int WRITE_INTERVAL = 1000;
+//MicroSD 
+const int chipSelect = 4;//Arduino UNO
+//const int chipSelect = 10;//Arduino Micro
+
+
+//ジャイロセンサーの積分値
+float pitch_g = 0.0;
+float roll_g = 0.0;
+
+//相補フィルタの保持値
+float prev_pitch = 0.0;
+float prev_roll = 0.0;
+ 
 //----------------------------------------------------------------------
 void setup(void) {
 
   // Open serial communications and wait for port to open:
-  //Serial.begin(9600);
+  Serial.begin(9600);
   /*while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }*/
 
 
-  Serial.begin(115200);                                 //シリアルモニタ通信速度設定
+  //Serial.begin(115200);                                 //シリアルモニタ通信速度設定
 
 
   //SD Card Initialize ====================================
@@ -126,23 +100,43 @@ void setup(void) {
   //=======================================================
 }
 
-//-----------------------------------------------------------------
-void loop(void) {                               //LCD描画
+/**
+ * loop
+ * ずっと繰り返される関数（何秒周期？）
+ * 【概要】
+ * 　10msでセンサーデータをサンプリング。
+ * 　記録用に、100ms単位でデータ化。
+ * 　蓄積したデータをまとめて、1000ms単位でSDカードにデータを出力する。
+ * 　
+ */
+void loop(void) {
 
-  // rebuild the picture after some delay
-  delay(SAMPLETIME);
+  int t, t2;
+  String record = "";
 
-  printGyro();  // Print "G: gx, gy, gz"　　　シリアルモニタ表示用フォーマット
-  printAccel(); // Print "A: ax, ay, az"
-  printMag();   // Print "M: mx, my, mz"
-  String record = 
-    printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz);
-  Serial.println();
+  for(t2 = 0; t2 < WRITE_INTERVAL;){
+    for(t = 0; t < WRITE_INTERVAL / SAMPLETIME; t += SAMPLETIME){
+      readGyro();
+      readAccel();
+      readMag();
+  
+      //空回りで、10msで値を更新しつづける    
+      printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
+  
+      delay(SAMPLETIME);
+    }
+    
+    // 1/10秒のうち1/100秒で代表値を取得
+    //記録用の値を取得
+    record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
+    t2 += t;
+  }
+  
 
-
+    
   //Write MicroSD =================================
     // make a string for assembling the data to log:
-  String dataString = "";
+  //String dataString = "";
 
   // read three sensors and append to the string:
   /*for (int analogPin = 0; analogPin < 3; analogPin++) {
@@ -155,27 +149,28 @@ void loop(void) {                               //LCD描画
 
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  /*File dataFile = SD.open("datalog.txt", FILE_WRITE);
 
   // if the file is available, write to it:
   if (dataFile) {
-    dataFile.println(record);
+    dataFile.println(buffer);
     dataFile.close();
     // print to the serial port too:
-    Serial.println(record);
+    Serial.println(buffer);
   }
   // if the file isn't open, pop up an error:
   else {
     Serial.println("error opening datalog.txt");
   }
-
+*/
   //======================================================
-
-
+  Serial.print(record);
+  Serial.println("================================");
+  //delay(WRITE_INTERVAL);
 }
 
 //--------------------　Gyro DATA ------------------------------------
-void printGyro()
+void readGyro()
 {
 
   imu.readGyro();
@@ -201,7 +196,7 @@ void printGyro()
 
 }
 //-------------------　Accel DATA ----------------------
-void printAccel()
+void readAccel()
 {
   // To read from the accelerometer, you must first call the
   // readAccel() function. When this exits, it'll update the
@@ -231,7 +226,7 @@ void printAccel()
 
 }
 //--------------　Mag DATA ------------------
-void printMag()
+void readMag()
 {
 
   imu.readMag();
@@ -251,8 +246,6 @@ void printMag()
   Serial.print(imu.my);
   Serial.print(", ");
   Serial.println(imu.mz);
-
-
 #endif
 
 
@@ -272,13 +265,6 @@ void printMag()
  * mz : 地磁気センサー Z値
  */
 
- //ジャイロセンサーの積分値
- float pitch_g = 0.0;
- float roll_g = 0.0;
-
- //相補フィルタの保持値
- float prev_pitch = 0.0;
- float prev_roll = 0.0;
 String printAttitude(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz)
 {
 
@@ -306,21 +292,20 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
   roll  *= 180.0 / PI;
 
 
-
+#ifdef DEBUG_GYRO
   Serial.print("Pitch, Roll: ");
   Serial.print(pitch, 2);
   Serial.print(", ");
   Serial.println(roll, 2);
   //Serial.print("Heading: ");
   //Serial.println(heading, 2);
-
+#endif
 
   //*** Gyro ***
   float gyro_x =  gx * SAMPLETIME / 1000;
   float gyro_y = gy * SAMPLETIME / 1000;
 
 #ifdef DEBUG_GYRO
-
   //ジャイロセンサーから求めた角度
   pitch_g = pitch_g + gyro_x;  
   roll_g = roll_g + gyro_y;
@@ -336,13 +321,18 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
   prev_pitch = complementFilter( prev_pitch, gyro_x, pitch );
   prev_roll = complementFilter( prev_roll, gyro_y, roll );
 
-  output = "hoge";
+  output = prev_pitch;
+  output += ",";
+  output += prev_roll;
 
+#ifdef DEBUG_GYRO
+  Serial.println("Filtered");
   Serial.print("Pitch, Roll: ");
   Serial.print(prev_pitch, 2);
   Serial.print(", ");
   Serial.print(prev_roll, 2);
   Serial.println("");
+#endif
 
   return output;
 }
