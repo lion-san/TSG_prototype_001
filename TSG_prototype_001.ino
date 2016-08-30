@@ -125,7 +125,7 @@ void loop(void) {                               //LCD描画
       printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz);
 
       strcpy(buffer[y], record.c_str());
-     
+           
       delay(SAMPLETIME);
   }
 
