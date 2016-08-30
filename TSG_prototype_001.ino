@@ -44,7 +44,7 @@
 
 
 LSM9DS1 imu;
-int SAMPLETIME = 10;
+int SAMPLETIME = 100;
 int WRITE_INTERVAL = 1000;
 //MicroSD 
 //const int chipSelect = 4;//Arduino UNO
@@ -329,7 +329,6 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
 
   sprintf(tmp, "%.2f,%.2f\n", prev_pitch, prev_roll) ;
   output = tmp;
-  free(tmp);
 
 #ifdef DEBUG_GYRO
   Serial.print("Pitch, Roll: ");
