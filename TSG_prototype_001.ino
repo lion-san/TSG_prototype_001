@@ -34,26 +34,8 @@
 //#define PRINT_SPEED 250 // 250 ms between prints
 #define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
 
-<<<<<<< HEAD
 //-------------------------------------------------------------------------
-//Global valiables
-
-LSM9DS1 imu;
-int SAMPLETIME = 10;
-int RECORD_INTERVAL = 100;
-int WRITE_INTERVAL = 1000;
-//MicroSD 
-const int chipSelect = 4;//Arduino UNO
-//const int chipSelect = 10;//Arduino Micro
-=======
-//バッファの確保
-#define SIZE_ROW 100
-#define SIZE_ROWS 10
-//-------------------------------------------------------------------------
-//Global valiables
-
-
-
+//[Global valiables]
 
 LSM9DS1 imu;
 int SAMPLETIME = 100;
@@ -61,10 +43,6 @@ int WRITE_INTERVAL = 1000;
 //MicroSD 
 //const int chipSelect = 4;//Arduino UNO
 const int chipSelect = 10;//Arduino Micro
-
-char *buffer;
->>>>>>> 5875780f272489d61470b8e997d6b03afdb36aa0
-
 
 //ジャイロセンサーの積分値
 float pitch_g = 0.0;
@@ -124,7 +102,6 @@ void setup(void) {
  * loop
  * ずっと繰り返される関数（何秒周期？）
  * 【概要】
-<<<<<<< HEAD
  * 　10msでセンサーデータをサンプリング。
  * 　記録用に、100ms単位でデータ化。
  * 　蓄積したデータをまとめて、1000ms単位でSDカードにデータを出力する。
@@ -152,36 +129,6 @@ void loop(void) {
     record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
     t2 += t;
   }
-  
-=======
- * 　100msでセンサーデータを取得し、スタックに蓄積。
- * 　蓄積したデータをまとめて、1000ms単位でSDカードにデータを出力する。
- * 　
- */
-void loop(void) {                               //LCD描画
-
-
-#ifdef DEBUG_GYRO
-  printGyro();  // Print "G: gx, gy, gz"　　　シリアルモニタ表示用フォーマット
-  printAccel(); // Print "A: ax, ay, az"
-  printMag();   // Print "M: mx, my, mz"
-#endif
-
-  //メモリの確保
-  buffer = malloc(sizeof(char) * SIZE_ROW * SIZE_ROWS);
-
-  int y;
-
-  for (y = 0; y < SIZE_ROWS; y++){
-    String record = 
-      printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz);
-
-      strcpy(buffer[y], record.c_str());
-           
-      delay(SAMPLETIME);
-  }
->>>>>>> 5875780f272489d61470b8e997d6b03afdb36aa0
-
     
   //Write MicroSD =================================
     // make a string for assembling the data to log:
@@ -213,16 +160,8 @@ void loop(void) {                               //LCD描画
   }
 */
   //======================================================
-<<<<<<< HEAD
   Serial.print(record);
   Serial.println("================================");
-  //delay(WRITE_INTERVAL);
-=======
-
-  delay(WRITE_INTERVAL);
-  free(buffer);
-
->>>>>>> 5875780f272489d61470b8e997d6b03afdb36aa0
 }
 
 //--------------------　Gyro DATA ------------------------------------
@@ -325,7 +264,6 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
 {
 
   String output = "";
-  char tmp[SIZE_ROW];
 
   //重力加速度から求めた角度ををカルマンフィルタの初期値とする
   float roll = atan2(ay, az);
@@ -378,19 +316,12 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
   prev_pitch = complementFilter( prev_pitch, gyro_x, pitch );
   prev_roll = complementFilter( prev_roll, gyro_y, roll );
 
-<<<<<<< HEAD
   output = prev_pitch;
   output += ",";
   output += prev_roll;
 
 #ifdef DEBUG_GYRO
   Serial.println("Filtered");
-=======
-  sprintf(tmp, "%.2f,%.2f\n", prev_pitch, prev_roll) ;
-  output = tmp;
-
-#ifdef DEBUG_GYRO
->>>>>>> 5875780f272489d61470b8e997d6b03afdb36aa0
   Serial.print("Pitch, Roll: ");
   Serial.print(prev_pitch, 2);
   Serial.print(", ");
