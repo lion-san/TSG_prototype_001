@@ -42,8 +42,8 @@ int SAMPLETIME = 10;
 int RECORD_INTERVAL = 100;
 int WRITE_INTERVAL = 1000;
 //MicroSD 
-const int chipSelect = 4;//Arduino UNO
-//const int chipSelect = 10;//Arduino Micro
+//const int chipSelect = 4;//Arduino UNO
+const int chipSelect = 10;//Arduino Micro
 
 //ジャイロセンサーの積分値
 float pitch_g = 0.0;
