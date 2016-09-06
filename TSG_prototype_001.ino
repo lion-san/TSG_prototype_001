@@ -20,7 +20,7 @@
 #include <SD.h>
 #include <LSM9DS1_Registers.h>
 #include <LSM9DS1_Types.h>
-
+#include <SoftwareSerial.h>
 
 
 //#define ADAddr 0x48//
@@ -33,6 +33,11 @@
 
 //#define PRINT_SPEED 250 // 250 ms between prints
 #define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
+
+
+#define RX 8                            //GPS用のソフトウェアシリアル
+#define TX 9                            //GPS用のソフトウェアシリアル
+#define SENTENCES_BUFLEN      82        // GPSのメッセージデータバッファの個数
 
 //-------------------------------------------------------------------------
 //[Global valiables]
@@ -54,6 +59,15 @@ float prev_pitch = 0.0;
 float prev_roll = 0.0;
  
 //----------------------------------------------------------------------
+//=== Global for GPS ===========================================
+SoftwareSerial  g_gps( RX, TX );
+char head[] = "$GPRMC";
+char info[] = "$GPGGA";
+char buf[10];
+int SentencesNum = 0;                   // GPSのセンテンス文字列個数
+byte SentencesData[SENTENCES_BUFLEN] ;  // GPSのセンテンスデータバッファ
+//======================================================
+
 void setup(void) {
 
   // Open serial communications and wait for port to open:
@@ -97,6 +111,12 @@ void setup(void) {
       ;
   }
   //=======================================================
+
+
+  //GPS用のソフトウェアシリアル有効化
+  setupSoftwareSerial();
+
+  
 }
 
 /**
@@ -110,9 +130,10 @@ void setup(void) {
  */
 void loop(void) {
 
+  //MOTION
+  //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
   int t, t2;
   String record = "";
-
   for(t2 = 0; t2 < WRITE_INTERVAL;){
     for(t = 0; t < WRITE_INTERVAL / SAMPLETIME; t += SAMPLETIME){
       readGyro();
@@ -131,8 +152,50 @@ void loop(void) {
     record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
     t2 += t;
   }
-    
-  //Write MicroSD =================================
+  //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+  //GPS
+  //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+  char dt ;
+
+   // センテンスデータが有るなら処理を行う
+   if (g_gps.available()) {
+        // 1バイト読み出す
+        dt = g_gps.read() ;
+        //Serial.write(dt);//Debug ALL
+        // センテンスの開始
+        if (dt == '$') SentencesNum = 0 ;
+        
+        if (SentencesNum >= 0) {
+          
+          // センテンスをバッファに溜める
+          SentencesData[SentencesNum] = dt ;
+          SentencesNum++ ;
+             
+          // センテンスの最後(LF=0x0Aで判断)
+          if (dt == 0x0a || SentencesNum >= SENTENCES_BUFLEN) {
+
+            SentencesData[SentencesNum] = '\0' ;
+
+            //GPS情報の取得
+            getGpsInfo();
+
+            
+            // センテンスのステータスが"有効"になるまで待つ
+            if ( gpsIsReady() )
+            {
+               // 有効になったら書込み開始
+               Serial.print("O:");
+               Serial.print( (char *)SentencesData );
+            }
+          }
+        }
+   }
+  //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+  
+  //MicroSD
+  //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     // make a string for assembling the data to log:
   //String dataString = "";
 
@@ -374,3 +437,138 @@ float kalmanCalculate(float newAngle, float newRate){
 
     return x_angle;
 }*/
+
+//===============================================
+//
+//      GPS系の処理
+//
+//===============================================
+
+/**
+ * setupSoftwareSerial
+ * GPS用のソフトウェアシリアルの有効化
+ */
+void setupSoftwareSerial(){
+  g_gps.begin(9600);
+
+}
+
+/**
+ * getGpsInfo
+ * $GPGGA　ヘッダから、衛星受信数や時刻情報を取得
+ */
+void getGpsInfo()
+{
+    int i, c;
+    
+    //$1ヘッダが一致
+    if( strncmp((char *)SentencesData, info, 6) == 0 )
+    {
+
+      //コンマカウント初期化
+      c = 1; 
+
+      // センテンスの長さだけ繰り返す
+      for (i=0 ; i<SentencesNum; i++) {
+        if (SentencesData[i] == ','){
+          
+            c++ ; // 区切り文字を数える
+    
+            if ( c == 2 ) {
+                 Serial.println("----------------------------");
+                // Serial.println((char *)SentencesData);
+                 Serial.print("Time:");
+                 Serial.println(readDataUntilComma(i+1));
+                 continue;
+            }
+            else if ( c == 8 ) {
+                // Serial.println((char *)SentencesData);
+                 Serial.print("Number of Satelites:");
+                 Serial.println(readDataUntilComma(i+1));
+                 continue;
+            }
+        }
+      }
+      
+    }
+}
+
+
+/**
+ * gpsIsReady
+ * GPS情報が有効かどうかを判断
+ * 項目3が"A"かどうかで判断
+ */
+boolean gpsIsReady()
+{
+    int i, c;
+    
+    //$1ヘッダが一致かつ,$3ステータスが有効＝A
+    if( strncmp((char *)SentencesData, head, 6) == 0 )
+    {
+
+      //コンマカウント初期化
+      c = 1; 
+
+      // センテンスの長さだけ繰り返す
+      for (i=0 ; i<SentencesNum; i++) {
+        if (SentencesData[i] == ','){
+              
+              c++ ; // 区切り文字を数える
+    
+            if ( c == 3 ) {
+                 //次のコンマまでのデータを呼び出し
+                 if( strncmp("A", readDataUntilComma(i+1), 1) == 0 ){
+                   return true;
+                 }
+                 else{
+                   Serial.print("X:");
+                   Serial.print( (char *)SentencesData );
+                   return false;
+                 }
+            }
+        }
+      }
+      
+    }
+
+    return false;
+}
+
+/**
+  * readDataUntilComma
+  */
+char* readDataUntilComma(int s)
+{
+  int i, j;
+
+  j = 0;
+  //初期化
+  memset(buf,0x00,sizeof(buf)) ;
+
+  //終了条件
+  //次のコンマが出現or特定文字*（チェックサム)が出現
+  for (i = s; i < SentencesNum; i++)
+  {
+    if(( SentencesData[i] == ',') || (SentencesData[i] == '*')){
+      buf[j] = '\0';
+      return buf;
+    }
+    else{
+      //バッファーのオーバフローをチェック
+      if( j < 10 ) {
+        buf[j] = SentencesData[i];
+        j++;
+      }
+      else{//エラー処理
+        int x;
+        for(x = 0; x < sizeof(buf); x++)
+          buf[x] = 'X';
+          return buf;
+      }
+      
+    }
+  }
+  
+}
+
