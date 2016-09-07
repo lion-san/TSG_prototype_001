@@ -472,7 +472,7 @@ void getGpsData(){
 
                //GPS読み込み完了フラグの更新
                isReaded = true;
-               gpsData = string((char *)SentencesData );
+               gpsData = String((char *)SentencesData );
 
                return;
             }
