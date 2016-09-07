@@ -122,7 +122,7 @@ void loop(void) {
 
   //MOTION
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-  int t, t2;
+  int t;
   String record = "";                  //記録用結果保持
   isReaded = false;                    //GPSの記録完了フラグ初期化
   gpsData = "";                        //GPSの記録データ初期化
@@ -131,10 +131,11 @@ void loop(void) {
 
   unsigned long s_time = millis();
 
-  //for(t2 = 0; t2 < WRITE_INTERVAL;){
   while(millis() - s_time < WRITE_INTERVAL){
     Serial.println(millis() - s_time);
     for(t = 0; t < RECORD_INTERVAL; t += SAMPLETIME){
+
+      //Read three sensors data on the memory
       readGyro();
       readAccel();
       readMag();
@@ -159,10 +160,8 @@ void loop(void) {
 
 
     // read three sensors and append to the string:
-    // 1/10秒のうち1/100秒で代表値を取得
     //記録用の値を取得
     record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
-    //t2 += t;
 
 
 
@@ -193,12 +192,12 @@ void loop(void) {
       //Serial.println("None GPS.");
     }
     
-    dataFile.println(record);
+    dataFile.print(record);
     dataFile.close();
     
     // print to the serial port too:
     Serial.println(record);
-    Serial.println("================================");
+    Serial.println(F("================================"));
   }
   // if the file isn't open, pop up an error:
   else {
@@ -304,8 +303,7 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
  * deg_a : 加速度センサーで得た角度
  */
  float complementFilter(float prev_val, float deg_g, float deg_a){
-    float output = 0.95 * (prev_val + deg_g) + 0.05 * deg_a;
-    return output;
+    return 0.95 * (prev_val + deg_g) + 0.05 * deg_a;
  }
 
 /**
@@ -358,7 +356,6 @@ float kalmanCalculate(float newAngle, float newRate){
  */
 void setupSoftwareSerial(){
   g_gps.begin(9600);
-
 }
 
 /**
@@ -439,7 +436,7 @@ void getGpsInfo()
             c++ ; // 区切り文字を数える
     
             if ( c == 2 ) {
-                 Serial.println(F("----------------------------"));
+                 //Serial.println(F("----------------------------"));
                 // Serial.println((char *)SentencesData);
                  Serial.print(F("Time:"));
                  Serial.println(readDataUntilComma(i+1));
