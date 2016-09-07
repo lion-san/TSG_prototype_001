@@ -33,6 +33,8 @@
 
 #define DECLINATION -8.58               // Declination (degrees) in Boulder, CO.
 
+//#define MICRO_SD   4                    //Arduino UNO
+//#define MICRO_SD  10                    //Arduino Micro
 
 #define RX 8                            //GPS用のソフトウェアシリアル
 #define TX 9                            //GPS用のソフトウェアシリアル
@@ -46,12 +48,12 @@ int SAMPLETIME = 10;
 int RECORD_INTERVAL = 100;
 int WRITE_INTERVAL = 1000;
 //MicroSD 
-//const int chipSelect = 4;//Arduino UNO
-const int chipSelect = 10;//Arduino Micro
+const int chipSelect = 4;//Arduino UNO
+//const int chipSelect = 10;//Arduino Micro
 
 //ジャイロセンサーの積分値
-float pitch_g = 0.0;
-float roll_g = 0.0;
+//float pitch_g = 0.0;
+//float roll_g = 0.0;
 
 //相補フィルタの保持値
 float prev_pitch = 0.0;
@@ -75,15 +77,15 @@ void setup(void) {
   Serial.begin(9600);
 
   //=== SD Card Initialize ====================================
-  Serial.print("Initializing SD card...");
+  Serial.print(F("Initializing SD card..."));
 
   // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
+    Serial.println(F("Card failed, or not present"));
     // don't do anything more:
     return;
   }
-  Serial.println("card initialized.");
+  Serial.println(F("card initialized."));
 
   //=======================================================
 
@@ -94,12 +96,7 @@ void setup(void) {
 
   if (!imu.begin())              //センサ接続エラー時の表示
   {
-    Serial.println("Failed to communicate with LSM9DS1.");
-    Serial.println("Double-check wiring.");
-    Serial.println("Default settings in this sketch will " \
-                   "work for an out of the box LSM9DS1 " \
-                   "Breakout, but may need to be modified " \
-                   "if the board jumpers are.");
+    Serial.println(F("Failed to communicate with LSM9DS1."));
     while (1)
       ;
   }
@@ -130,7 +127,7 @@ void loop(void) {
   isReaded = false;                    //GPSの記録完了フラグ初期化
   gpsData = "";                        //GPSの記録データ初期化
 
-  //int i = 0;
+  int i = 0;
 
   unsigned long s_time = millis();
 
@@ -144,24 +141,22 @@ void loop(void) {
   
       //空回りで、10msで値を更新しつづける   
       printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
-
+ 
+      //delay(SAMPLETIME);
+    }
 
 
       //GPS
       //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
       if(isReaded){
-        //break;
+        ;
       }
       else{
         getGpsData();
-        //i++;
+        i++;
       }
       //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-
-  
-      //delay(SAMPLETIME);
-    }
 
     // read three sensors and append to the string:
     // 1/10秒のうち1/100秒で代表値を取得
@@ -169,10 +164,12 @@ void loop(void) {
     record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
     //t2 += t;
 
+
+
   }
   //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
-
-  //Serial.println(i);
+  Serial.print("read :");
+  Serial.println(i);
   
   //MicroSD
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -186,12 +183,15 @@ void loop(void) {
 
   // if the file is available, write to it:
   if (dataFile) {
+    
     if(isReaded){
       dataFile.print(gpsData);
-      Serial.print(gpsData);
+      //Serial.print(gpsData);
     }
-    else
-      Serial.println("None GPS.");    
+    else{
+      //Serial.println("None GPS.");
+    }
+    
     dataFile.println(record);
     dataFile.close();
     
@@ -201,7 +201,7 @@ void loop(void) {
   }
   // if the file isn't open, pop up an error:
   else {
-    Serial.println("error opening datalog.txt");
+    Serial.println(F("error opening datalog.txt"));
   }
 
   //======================================================
@@ -213,24 +213,6 @@ void readGyro()
 
   imu.readGyro();
 
-#ifdef PRINT_CALCULATED
-  Serial.print("G: ");
-  Serial.print(imu.calcGyro(imu.gx), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcGyro(imu.gy), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcGyro(imu.gz), 2);
-  Serial.println(" deg/s");
-
-
-
-#elif defined PRINT_RAW
-  Serial.print(imu.gx);
-  Serial.print(", ");
-  Serial.print(imu.gy);
-  Serial.print(", ");
-  Serial.println(imu.gz);
-#endif
 
 }
 //-------------------　Accel DATA ----------------------
@@ -241,26 +223,6 @@ void readAccel()
   // ax, ay, and az variables with the most current data.
   imu.readAccel();
 
-#ifdef PRINT_CALCULATED
-  Serial.print("A: ");
-
-  Serial.print(imu.calcAccel(imu.ax), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcAccel(imu.ay), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcAccel(imu.az), 2);
-  Serial.println(" g");
-
-
-
-
-#elif defined PRINT_RAW
-  Serial.print(imu.ax);
-  Serial.print(", ");
-  Serial.print(imu.ay);
-  Serial.print(", ");
-  Serial.println(imu.az);
-#endif
 
 }
 //--------------　Mag DATA ------------------
@@ -268,23 +230,7 @@ void readMag()
 {
 
   imu.readMag();
-#ifdef PRINT_CALCULATED
-  Serial.print("M: ");
 
-  Serial.print(imu.calcMag(imu.mx), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcMag(imu.my), 2);
-  Serial.print(", ");
-  Serial.print(imu.calcMag(imu.mz), 2);
-  Serial.println(" gauss");
-  
-#elif defined PRINT_RAW
-  Serial.print(imu.mx);
-  Serial.print(", ");
-  Serial.print(imu.my);
-  Serial.print(", ");
-  Serial.println(imu.mz);
-#endif
 
 
 }
@@ -330,30 +276,11 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
   roll  *= 180.0 / PI;
 
 
-#ifdef DEBUG_GYRO
-  Serial.print("Pitch, Roll: ");
-  Serial.print(pitch, 2);
-  Serial.print(", ");
-  Serial.println(roll, 2);
-  //Serial.print("Heading: ");
-  //Serial.println(heading, 2);
-#endif
-
   //*** Gyro ***
   float gyro_x =  gx * SAMPLETIME / 1000;
   float gyro_y = gy * SAMPLETIME / 1000;
 
-#ifdef DEBUG_GYRO
-  //ジャイロセンサーから求めた角度
-  pitch_g = pitch_g + gyro_x;  
-  roll_g = roll_g + gyro_y;
 
-  Serial.print("PitchG, RollG: ");
-  Serial.print(pitch_g, 2);
-  Serial.print(", ");
-  Serial.print(roll_g, 2);
-  Serial.println("");
-#endif
 
   //相補フィルタの出力
   prev_pitch = complementFilter( prev_pitch, gyro_x, pitch );
@@ -363,14 +290,7 @@ String printAttitude(float gx, float gy, float gz, float ax, float ay, float az,
   output += ",";
   output += prev_roll;
 
-#ifdef DEBUG_GYRO
-  Serial.println("Filtered");
-  Serial.print("Pitch, Roll: ");
-  Serial.print(prev_pitch, 2);
-  Serial.print(", ");
-  Serial.print(prev_roll, 2);
-  Serial.println("");
-#endif
+
 
   return output;
 }
@@ -518,15 +438,15 @@ void getGpsInfo()
             c++ ; // 区切り文字を数える
     
             if ( c == 2 ) {
-                 Serial.println("----------------------------");
+                 Serial.println(F("----------------------------"));
                 // Serial.println((char *)SentencesData);
-                 Serial.print("Time:");
+                 Serial.print(F("Time:"));
                  Serial.println(readDataUntilComma(i+1));
                  continue;
             }
             else if ( c == 8 ) {
                 // Serial.println((char *)SentencesData);
-                 Serial.print("Number of Satelites:");
+                 Serial.print(F("Number of Satelites:"));
                  Serial.println(readDataUntilComma(i+1));
                  continue;
             }
