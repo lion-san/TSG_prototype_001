@@ -142,7 +142,7 @@ void loop(void) {
       //空回りで、10msで値を更新しつづける   
       printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
  
-      //delay(SAMPLETIME);
+      delay(SAMPLETIME);
     }
 
 
@@ -170,6 +170,7 @@ void loop(void) {
   //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
   Serial.print("read :");
   Serial.println(i);
+  
   
   //MicroSD
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -394,7 +395,7 @@ void getGpsData(){
             SentencesData[SentencesNum] = '\0' ;
     
             //GPS情報の取得
-            //getGpsInfo();
+            getGpsInfo();
             
             // センテンスのステータスが"有効"になるまで待つ
             if ( gpsIsReady() )
