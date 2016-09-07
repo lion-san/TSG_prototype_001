@@ -130,7 +130,13 @@ void loop(void) {
   isReaded = false;                    //GPSの記録完了フラグ初期化
   gpsData = "";                        //GPSの記録データ初期化
 
-  for(t2 = 0; t2 < WRITE_INTERVAL;){
+  //int i = 0;
+
+  unsigned long s_time = millis();
+
+  //for(t2 = 0; t2 < WRITE_INTERVAL;){
+  while(millis() - s_time < WRITE_INTERVAL){
+    Serial.println(millis() - s_time);
     for(t = 0; t < RECORD_INTERVAL; t += SAMPLETIME){
       readGyro();
       readAccel();
@@ -144,28 +150,29 @@ void loop(void) {
       //GPS
       //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
       if(isReaded){
-        ;
+        //break;
       }
       else{
         getGpsData();
+        //i++;
       }
       //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
 
   
-      delay(SAMPLETIME);
+      //delay(SAMPLETIME);
     }
 
     // read three sensors and append to the string:
     // 1/10秒のうち1/100秒で代表値を取得
     //記録用の値を取得
     record += printAttitude (imu.calcGyro(imu.gx), imu.calcGyro(imu.gy), imu.calcGyro(imu.gz), imu.ax, imu.ay, imu.az, -imu.my, -imu.mx, imu.mz) + "\n";
-    t2 += t;
+    //t2 += t;
 
   }
   //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-
+  //Serial.println(i);
   
   //MicroSD
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -179,10 +186,15 @@ void loop(void) {
 
   // if the file is available, write to it:
   if (dataFile) {
+    if(isReaded){
+      dataFile.print(gpsData);
+      Serial.print(gpsData);
+    }
+    else
+      Serial.println("None GPS.");    
     dataFile.println(record);
-    if(isReaded)
-      dataFile.println(gpsData);
     dataFile.close();
+    
     // print to the serial port too:
     Serial.println(record);
     Serial.println("================================");
@@ -444,6 +456,7 @@ void getGpsData(){
 
         // 1バイト読み出す
         dt = g_gps.read() ;
+        //Serial.write(dt);
 
         //Serial.write(dt);//Debug ALL
         // センテンスの開始
@@ -467,8 +480,8 @@ void getGpsData(){
             if ( gpsIsReady() )
             {
                // 有効になったら書込み開始
-               Serial.print("O:");
-               Serial.print( (char *)SentencesData );
+               //Serial.print("O:");
+               //Serial.print( (char *)SentencesData );
 
                //GPS読み込み完了フラグの更新
                isReaded = true;
