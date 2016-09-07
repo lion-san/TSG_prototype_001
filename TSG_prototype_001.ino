@@ -25,14 +25,13 @@
 
 //#define ADAddr 0x48//
 
-#define LSM9DS1_M  0x1E // SPIアドレス設定 0x1C if SDO_M is LOW
-#define LSM9DS1_AG  0x6B // SPIアドレス設定 if SDO_AG is LOW
+#define LSM9DS1_M  0x1E                 // SPIアドレス設定 0x1C if SDO_M is LOW
+#define LSM9DS1_AG  0x6B                // SPIアドレス設定 if SDO_AG is LOW
 
-//#define PRINT_CALCULATED //表示用の定義
-//#define DEBUG_GYRO //ジャイロスコープの表示
+//#define PRINT_CALCULATED              //表示用の定義
+//#define DEBUG_GYRO                    //ジャイロスコープの表示
 
-//#define PRINT_SPEED 250 // 250 ms between prints
-#define DECLINATION -8.58 // Declination (degrees) in Boulder, CO.
+#define DECLINATION -8.58               // Declination (degrees) in Boulder, CO.
 
 
 #define RX 8                            //GPS用のソフトウェアシリアル
@@ -72,15 +71,8 @@ void setup(void) {
 
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
-  /*while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }*/
 
-
-  //Serial.begin(115200);                                 //シリアルモニタ通信速度設定
-
-
-  //SD Card Initialize ====================================
+  //=== SD Card Initialize ====================================
   Serial.print("Initializing SD card...");
 
   // see if the card is present and can be initialized:
@@ -93,13 +85,12 @@ void setup(void) {
 
   //=======================================================
 
-  //LSM9DS1 Initialize=====================================
+  //=== LSM9DS1 Initialize =====================================
   imu.settings.device.commInterface = IMU_MODE_I2C;
-  imu.settings.device.mAddress = LSM9DS1_M;
+  imu.settings.device.mAddress  = LSM9DS1_M;
   imu.settings.device.agAddress = LSM9DS1_AG;
 
-  if (!imu.begin())                                     //センサ接続エラー時の表示
-
+  if (!imu.begin())              //センサ接続エラー時の表示
   {
     Serial.println("Failed to communicate with LSM9DS1.");
     Serial.println("Double-check wiring.");
@@ -113,9 +104,9 @@ void setup(void) {
   //=======================================================
 
 
-  //GPS用のソフトウェアシリアル有効化
+  //=== GPS用のソフトウェアシリアル有効化 =================
   setupSoftwareSerial();
-
+  //=======================================================
   
 }
 
@@ -133,9 +124,9 @@ void loop(void) {
   //MOTION
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
   int t, t2;
-  String record = "";
+  String record = "";                  //記録用結果保持
   for(t2 = 0; t2 < WRITE_INTERVAL;){
-    for(t = 0; t < WRITE_INTERVAL / SAMPLETIME; t += SAMPLETIME){
+    for(t = 0; t < RECORD_INTERVAL; t += SAMPLETIME){
       readGyro();
       readAccel();
       readMag();
@@ -156,41 +147,6 @@ void loop(void) {
 
   //GPS
   //▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-  char dt ;
-
-   // センテンスデータが有るなら処理を行う
-   if (g_gps.available()) {
-        // 1バイト読み出す
-        dt = g_gps.read() ;
-        //Serial.write(dt);//Debug ALL
-        // センテンスの開始
-        if (dt == '$') SentencesNum = 0 ;
-        
-        if (SentencesNum >= 0) {
-          
-          // センテンスをバッファに溜める
-          SentencesData[SentencesNum] = dt ;
-          SentencesNum++ ;
-             
-          // センテンスの最後(LF=0x0Aで判断)
-          if (dt == 0x0a || SentencesNum >= SENTENCES_BUFLEN) {
-
-            SentencesData[SentencesNum] = '\0' ;
-
-            //GPS情報の取得
-            getGpsInfo();
-
-            
-            // センテンスのステータスが"有効"になるまで待つ
-            if ( gpsIsReady() )
-            {
-               // 有効になったら書込み開始
-               Serial.print("O:");
-               Serial.print( (char *)SentencesData );
-            }
-          }
-        }
-   }
   //▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
   
@@ -454,6 +410,55 @@ void setupSoftwareSerial(){
 }
 
 /**
+ * getGpsData
+ * GPSの1秒単位の情報を取得
+ */
+String getGpsData(){
+
+  char dt ;
+
+  while(1){
+  
+    // センテンスデータが有るなら処理を行う
+    if (g_gps.available()) {
+      // 1バイト読み出す
+      dt = g_gps.read() ;
+      //Serial.write(dt);//Debug ALL
+      // センテンスの開始
+      if (dt == '$') SentencesNum = 0 ;
+      
+      if (SentencesNum >= 0) {
+        
+        // センテンスをバッファに溜める
+        SentencesData[SentencesNum] = dt ;
+        SentencesNum++ ;
+           
+        // センテンスの最後(LF=0x0Aで判断)
+        if (dt == 0x0a || SentencesNum >= SENTENCES_BUFLEN) {
+  
+          SentencesData[SentencesNum] = '\0' ;
+  
+          //GPS情報の取得
+          getGpsInfo();
+          
+          // センテンスのステータスが"有効"になるまで待つ
+          if ( gpsIsReady() )
+          {
+             // 有効になったら書込み開始
+             Serial.print("O:");
+             Serial.print( (char *)SentencesData );
+
+             return string( (char *)SentencesData );
+          }
+        }
+      }
+    }
+
+  }
+
+}
+
+/**
  * getGpsInfo
  * $GPGGA　ヘッダから、衛星受信数や時刻情報を取得
  */
@@ -522,8 +527,9 @@ boolean gpsIsReady()
                    return true;
                  }
                  else{
-                   Serial.print("X:");
-                   Serial.print( (char *)SentencesData );
+                   //Serial.print("X:");
+                   
+                   //Serial.print( (char *)SentencesData );
                    return false;
                  }
             }
