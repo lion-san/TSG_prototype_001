@@ -180,6 +180,8 @@ void loop(void) {
   // if the file is available, write to it:
   if (dataFile) {
     dataFile.println(record);
+    if(isReaded)
+      dataFile.println(gpsData);
     dataFile.close();
     // print to the serial port too:
     Serial.println(record);
